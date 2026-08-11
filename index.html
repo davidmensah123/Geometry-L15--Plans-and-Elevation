@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GCSE Maths: Plans &amp; Elevations - Interactive Grid Drawing</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter & Kalam -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- MathJax Configuration for TeX formulas -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']]
+            },
+            options: {
+                enableMenu: false
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+        .handwritten {
+            font-family: 'Kalam', cursive;
+        }
+        /* Grey school graph grid background */
+        .grid-bg {
+            background-color: #f1f5f9;
+            background-image: 
+                linear-gradient(to right, rgba(148, 163, 184, 0.25) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(148, 163, 184, 0.25) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        /* Isometric Dot Grid */
+        .iso-grid-bg {
+            background-color: #0f172a;
+            background-image: radial-gradient(rgba(226, 232, 240, 0.3) 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        canvas {
+            touch-action: none;
+        }
+
+        /* Interactive Grid Square Styles */
+        .grid-cell {
+            transition: all 0.15s ease-in-out;
+            cursor: pointer;
+        }
+        .grid-cell:hover {
+            transform: scale(0.96);
+            filter: brightness(1.1);
+        }
+        .grid-cell.plan-active {
+            background-color: #f59e0b !important; /* Amber */
+            border-color: #d97706 !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .grid-cell.front-active {
+            background-color: #10b981 !important; /* Emerald */
+            border-color: #059669 !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .grid-cell.side-active {
+            background-color: #06b6d4 !important; /* Cyan / Sky */
+            border-color: #0891b2 !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .grid-cell.cell-error {
+            animation: pulse-error 1s infinite alternate;
+            border: 2px dashed #f43f5e !important;
+        }
+        @keyframes pulse-error {
+            from { opacity: 0.7; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="grid-bg min-h-screen text-slate-800 flex flex-col pb-12">
+
+    <!-- HEADER BAR -->
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b-4 border-indigo-600 shadow-md px-6 py-4">
+        <div class="max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+                    <i class="fa-solid fa-cubes text-indigo-600"></i> GCSE Maths: Plans &amp; Elevations
+                </h1>
+                <p class="text-xs text-slate-500 font-semibold mt-0.5">Interactive Grid Drawing Lab — Click Boxes to Draw Front, Side &amp; Plan Views!</p>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <!-- Dynamic Progress Tracker -->
+                <div class="flex items-center gap-3 bg-slate-50 border-2 border-slate-200 rounded-xl p-2.5 shadow-inner">
+                    <div class="text-right">
+                        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Drawing Tasks</p>
+                        <p class="text-xs font-extrabold text-indigo-800" id="progress-score">0 / 6 Completed</p>
+                    </div>
+                    <div class="w-20 md:w-28 bg-slate-200 h-3 rounded-full overflow-hidden relative border border-slate-300">
+                        <div id="progress-bar-fill" class="bg-indigo-600 h-full w-0 transition-all duration-700"></div>
+                    </div>
+                    <div class="pl-2 border-l-2 border-slate-300 text-center">
+                        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Total Stars</p>
+                        <p class="text-sm font-black text-amber-500 flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-star animate-bounce"></i> 
+                            <span id="stars-count" class="text-slate-900">0</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Notification Toast Popup -->
+    <div id="notification-toast" class="fixed top-24 right-4 z-50 max-w-sm w-full bg-slate-900 text-white p-4 rounded-xl shadow-2xl border-2 border-indigo-500 transform translate-x-full opacity-0 transition-all duration-300 pointer-events-none flex items-start gap-3">
+        <div class="p-1 rounded-full bg-indigo-600" id="toast-icon">
+            <i class="fa-solid fa-circle-info"></i>
+        </div>
+        <div>
+            <h4 class="font-bold text-sm" id="toast-title">Notice</h4>
+            <p class="text-xs text-slate-300 mt-0.5" id="toast-message">Feedback statement.</p>
+        </div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 mt-8 space-y-8">
+
+        <!-- OBJECTIVES CARD -->
+        <section class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl border-2 border-indigo-500/30 shadow-xl p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 -mt-8 -mr-8 w-48 h-48 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-slate-700/80 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-600/90 flex items-center justify-center text-amber-300 text-xl font-black shadow-inner">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                            Interactive Grid Drawing Guide: 2D Orthographic Projections
+                        </h2>
+                        <p class="text-xs text-slate-300">Learn to identify and draw the 3 key 2D views of any 3D object on square grid paper.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                <div class="bg-slate-800/80 hover:bg-slate-800 transition-colors border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
+                    <span class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 font-bold flex items-center justify-center shrink-0 border border-amber-500/30 text-sm">1</span>
+                    <div>
+                        <h3 class="font-bold text-amber-300 text-sm mb-1"><i class="fa-solid fa-eye mr-1"></i> Plan View (Top View)</h3>
+                        <p class="text-[11px] text-slate-300 leading-relaxed">Looking directly down from above. Shows <strong>Width</strong> (left to right) and <strong>Depth</strong> (front to back).</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800/80 hover:bg-slate-800 transition-colors border border-emerald-500/30 rounded-xl p-4 flex items-start gap-3">
+                    <span class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold flex items-center justify-center shrink-0 border border-emerald-500/30 text-sm">2</span>
+                    <div>
+                        <h3 class="font-bold text-emerald-300 text-sm mb-1"><i class="fa-solid fa-arrow-up mr-1"></i> Front Elevation</h3>
+                        <p class="text-[11px] text-slate-300 leading-relaxed">Looking directly from the front direction arrow. Shows <strong>Width</strong> and <strong>Height</strong>.</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800/80 hover:bg-slate-800 transition-colors border border-sky-500/30 rounded-xl p-4 flex items-start gap-3">
+                    <span class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-300 font-bold flex items-center justify-center shrink-0 border border-sky-500/30 text-sm">3</span>
+                    <div>
+                        <h3 class="font-bold text-sky-300 text-sm mb-1"><i class="fa-solid fa-arrow-right mr-1"></i> Side Elevation</h3>
+                        <p class="text-[11px] text-slate-300 leading-relaxed">Looking directly from the side. Shows <strong>Depth</strong> (base width) and <strong>Height</strong>.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 0: INTERACTIVE 3D VOXEL EXPLORER & LIVE PROJECTION DEMO -->
+        <section class="bg-white rounded-2xl border-2 border-slate-200 shadow-lg p-6 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-3 h-full bg-slate-800"></div>
+            <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800 text-xl font-black">0</div>
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Interactive 3D Voxel Explorer &amp; Real-Time Projections Lab</h2>
+                        <p class="text-sm text-slate-500">Click matrix positions to change block heights ($0\to 3$) and observe live synchronized Plan, Front, and Side views!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <!-- 3D Isometric Interactive Grid Builder -->
+                <div class="lg:col-span-6 bg-slate-950 text-white p-5 rounded-2xl border-2 border-indigo-500/40 shadow-xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs shadow">3D</span>
+                            <h3 class="text-xs font-bold text-slate-100 uppercase tracking-wider">3D Structure ($3 \times 3$ Base Grid)</h3>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button onclick="reset3DGrid()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-rotate-left"></i> Reset
+                            </button>
+                            <button onclick="loadPresetShape('l-shape')" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold transition-all">
+                                L-Shape
+                            </button>
+                            <button onclick="loadPresetShape('u-shape')" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold transition-all">
+                                U-Shape
+                            </button>
+                            <button onclick="loadPresetShape('step-shape')" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold transition-all">
+                                Stepped Prism
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive 3D Canvas / SVG -->
+                    <div class="h-60 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center relative overflow-hidden">
+                        <svg id="iso-builder-svg" class="w-full h-full" viewBox="0 0 360 240"></svg>
+                        
+                        <!-- View Direction Markers -->
+                        <div class="absolute bottom-2 left-3 bg-emerald-900/90 border border-emerald-500/50 px-2.5 py-1 rounded-lg text-[10px] font-bold text-emerald-300 flex items-center gap-1 shadow">
+                            <i class="fa-solid fa-arrow-right"></i> Front View
+                        </div>
+                        <div class="absolute bottom-2 right-3 bg-cyan-900/90 border border-cyan-500/50 px-2.5 py-1 rounded-lg text-[10px] font-bold text-cyan-300 flex items-center gap-1 shadow">
+                            Side View <i class="fa-solid fa-arrow-left"></i>
+                        </div>
+                        <div class="absolute top-2 left-3 bg-amber-900/90 border border-amber-500/50 px-2.5 py-1 rounded-lg text-[10px] font-bold text-amber-300 flex items-center gap-1 shadow">
+                            <i class="fa-solid fa-arrow-down"></i> Plan View (Top)
+                        </div>
+                    </div>
+
+                    <!-- Interactive Base Click Controls -->
+                    <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <span class="text-[11px] font-bold text-amber-300 uppercase tracking-wider block">Click Base Grid Cells to Increase Height:</span>
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono font-bold" id="grid-controls-matrix"></div>
+                    </div>
+                </div>
+
+                <!-- Synchronized 2D Orthographic Projections -->
+                <div class="lg:col-span-6 space-y-4">
+                    <div class="bg-slate-900 text-white p-5 rounded-2xl border-2 border-indigo-500/40 shadow-xl space-y-4">
+                        <h3 class="text-xs font-bold text-amber-300 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
+                            <span>Live Synchronized Projections</span>
+                            <span class="text-[10px] font-normal text-slate-400">Scale: 1 Grid Square = 1 Cube Unit</span>
+                        </h3>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <!-- Plan View -->
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center space-y-2">
+                                <span class="text-[10.5px] font-bold text-amber-400 uppercase block tracking-wider">
+                                    <i class="fa-solid fa-eye text-amber-400 mr-1"></i> Plan (Top)
+                                </span>
+                                <div class="h-32 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-center p-2">
+                                    <svg id="plan-projection-svg" class="w-full h-full" viewBox="0 0 120 120"></svg>
+                                </div>
+                                <p class="text-[10px] text-slate-400">Top-down view</p>
+                            </div>
+
+                            <!-- Front Elevation -->
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center space-y-2">
+                                <span class="text-[10.5px] font-bold text-emerald-400 uppercase block tracking-wider">
+                                    <i class="fa-solid fa-arrow-up text-emerald-400 mr-1"></i> Front View
+                                </span>
+                                <div class="h-32 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-center p-2">
+                                    <svg id="front-projection-svg" class="w-full h-full" viewBox="0 0 120 120"></svg>
+                                </div>
+                                <p class="text-[10px] text-slate-400">Front direction view</p>
+                            </div>
+
+                            <!-- Side Elevation -->
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center space-y-2">
+                                <span class="text-[10.5px] font-bold text-cyan-400 uppercase block tracking-wider">
+                                    <i class="fa-solid fa-arrow-right text-cyan-400 mr-1"></i> Side View
+                                </span>
+                                <div class="h-32 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-center p-2">
+                                    <svg id="side-projection-svg" class="w-full h-full" viewBox="0 0 120 120"></svg>
+                                </div>
+                                <p class="text-[10px] text-slate-400">Side direction view</p>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-indigo-950/60 border border-indigo-500/30 rounded-xl text-indigo-200 text-[11px] leading-relaxed">
+                            <i class="fa-solid fa-circle-info text-indigo-400 mr-1"></i>
+                            <strong>Key Concept:</strong> Each elevation captures the <em>maximum outline</em> along that line of sight. Internal solid lines indicate changes in depth or step height.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 1: INTERACTIVE GRID DRAWING TASKS -->
+        <section class="bg-white rounded-2xl border-2 border-indigo-200 shadow-lg p-6 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-3 h-full bg-indigo-600"></div>
+            <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-700 text-xl font-black">1</div>
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Interactive Grid Drawing Tasks: Click Boxes to Draw Views</h2>
+                        <p class="text-sm text-slate-500">For each 3D solid, click the grid cells to draw the <strong>Plan View</strong>, <strong>Front Elevation</strong>, and <strong>Side Elevation</strong> ($1 \text{ square} = 1 \text{ unit}$).</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-10" id="drawing-questions-container">
+                <!-- Dynamically rendered via JS for 6 core questions -->
+            </div>
+        </section>
+
+        <!-- SECTION 2: DIGITAL WHITEBOARD LAB FOR FREEHAND/ISO SKETCHING -->
+        <section class="bg-white rounded-2xl border-2 border-emerald-200 shadow-lg p-6 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-3 h-full bg-emerald-600"></div>
+            <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 text-xl font-black">2</div>
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Freehand Grid Canvas &amp; Whiteboard Sketching Lab</h2>
+                        <p class="text-sm text-slate-500">Practice drawing custom 2D orthographic projections or 3D isometric sketches with digital tools.</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
+                        <button onclick="setCanvasTool('pen')" id="btn-tool-pen" class="px-3 py-1.5 bg-emerald-600 text-white font-bold rounded-lg text-xs shadow flex items-center gap-1 transition-all">
+                            <i class="fa-solid fa-pen"></i> Pen
+                        </button>
+                        <button onclick="setCanvasTool('line')" id="btn-tool-line" class="px-3 py-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold rounded-lg text-xs flex items-center gap-1 transition-all">
+                            <i class="fa-solid fa-ruler font-bold"></i> Line
+                        </button>
+                        <button onclick="setCanvasTool('rect')" id="btn-tool-rect" class="px-3 py-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold rounded-lg text-xs flex items-center gap-1 transition-all">
+                            <i class="fa-regular fa-square font-bold"></i> Box
+                        </button>
+                        <button onclick="setCanvasTool('eraser')" id="btn-tool-eraser" class="px-3 py-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold rounded-lg text-xs flex items-center gap-1 transition-all">
+                            <i class="fa-solid fa-eraser"></i> Eraser
+                        </button>
+                    </div>
+
+                    <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
+                        <button onclick="setCanvasGrid('square')" id="btn-grid-square" class="px-2.5 py-1.5 bg-emerald-600 text-white font-bold rounded-lg text-xs flex items-center gap-1">
+                            <i class="fa-solid fa-border-all"></i> Square Grid
+                        </button>
+                        <button onclick="setCanvasGrid('iso')" id="btn-grid-iso" class="px-2.5 py-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold rounded-lg text-xs flex items-center gap-1">
+                            <i class="fa-solid fa-cubes"></i> Isometric Grid
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 pl-1">
+                        <button onclick="setCanvasColor('#10b981')" class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-white shadow hover:scale-110 transition-all"></button>
+                        <button onclick="setCanvasColor('#06b6d4')" class="w-6 h-6 rounded-full bg-cyan-500 border-2 border-white shadow hover:scale-110 transition-all"></button>
+                        <button onclick="setCanvasColor('#f59e0b')" class="w-6 h-6 rounded-full bg-amber-500 border-2 border-white shadow hover:scale-110 transition-all"></button>
+                        <button onclick="setCanvasColor('#f43f5e')" class="w-6 h-6 rounded-full bg-rose-500 border-2 border-white shadow hover:scale-110 transition-all"></button>
+                        <button onclick="setCanvasColor('#ffffff')" class="w-6 h-6 rounded-full bg-white border-2 border-slate-300 shadow hover:scale-110 transition-all"></button>
+                    </div>
+
+                    <button onclick="clearCanvas()" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs shadow flex items-center gap-1 ml-1">
+                        <i class="fa-solid fa-trash"></i> Clear
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div class="lg:col-span-8 bg-slate-950 p-4 rounded-2xl border-2 border-emerald-500/40 shadow-xl relative">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-3 text-xs text-slate-300">
+                        <span class="font-bold text-amber-300" id="canvas-mode-title"><i class="fa-solid fa-border-all mr-1"></i> Square Grid Whiteboard</span>
+                        <div class="flex items-center gap-3 text-[10px] text-slate-400">
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="snap-grid-toggle" class="rounded text-emerald-600 focus:ring-0">
+                                Snap to Grid (20px)
+                            </label>
+                            <span>Touch &amp; Mouse Enabled</span>
+                        </div>
+                    </div>
+
+                    <div id="canvas-container" class="w-full h-80 bg-slate-900 rounded-xl border border-slate-800 relative overflow-hidden grid-bg">
+                        <canvas id="whiteboard-canvas" class="w-full h-full cursor-crosshair"></canvas>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-4 bg-slate-900 text-white p-5 rounded-2xl border-2 border-emerald-500/40 shadow-xl space-y-4 text-xs">
+                    <h3 class="font-bold text-amber-300 text-sm border-b border-slate-800 pb-2">Digital Sketch Challenge</h3>
+                    <p class="text-slate-300 leading-relaxed">
+                        Use the drawing tools to sketch custom 3D solids or 2D orthographic projections:
+                    </p>
+                    <ul class="space-y-2 text-slate-300 text-[11px] list-disc pl-4 font-mono">
+                        <li><strong>Square Grid:</strong> Draw precise 2D Elevation outlines.</li>
+                        <li><strong>Isometric Grid:</strong> Draw 3D wireframe solids connecting dot grids.</li>
+                        <li>Use line and box tools for clean straight lines.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- JAVASCRIPT CONTROLLERS & INTERACTIVE GRID ENGINE -->
+    <script>
+        let scoreCount = 0;
+        const completedTasks = new Set();
+        const totalScore = 6;
+
+        // Voxel matrix state for Section 0 (3x3 grid)
+        let voxelMatrix = [
+            [2, 1, 0],
+            [1, 1, 0],
+            [0, 0, 0]
+        ];
+
+        // Question Data Definitions for Interactive Grid Drawing Tasks
+        const questionsData = [
+            {
+                id: 'q1',
+                title: 'Question 1: Cuboid ($4\\text{ cm} \\times 3\\text{ cm} \\times 2\\text{ cm}$)',
+                description: 'A simple cuboid with width $= 4\\text{ cm}$, depth $= 3\\text{ cm}$, height $= 2\\text{ cm}$. Draw its Plan, Front, and Side views on the $6 \\times 6$ grid ($1 \\text{ square} = 1 \\text{ cm}$).',
+                svgWireframe: `
+                    <svg class="w-full h-full" viewBox="0 0 240 140">
+                        <polygon points="30,110 130,110 130,70 30,70" fill="rgba(99,102,241,0.2)" stroke="#6366f1" stroke-width="2"/>
+                        <polygon points="130,110 190,80 190,40 130,70" fill="rgba(6,182,212,0.2)" stroke="#06b6d4" stroke-width="2"/>
+                        <polygon points="30,70 130,70 190,40 90,40" fill="rgba(245,158,11,0.2)" stroke="#f59e0b" stroke-width="2"/>
+                        
+                        <text x="80" y="123" fill="#cbd5e1" font-size="10" font-weight="bold">Width = 4 cm (Front)</text>
+                        <text x="165" y="98" fill="#06b6d4" font-size="10" font-weight="bold">Depth = 3 cm</text>
+                        <text x="10" y="92" fill="#6366f1" font-size="10" font-weight="bold">Height = 2 cm</text>
+                        
+                        <!-- Front Arrow -->
+                        <line x1="20" y1="125" x2="60" y2="125" stroke="#10b981" stroke-width="2.5"/>
+                        <text x="30" y="136" fill="#10b981" font-size="8" font-weight="bold">Front View</text>
+                    </svg>
+                `,
+                grids: {
+                    plan: { rows: 6, cols: 6, target: [ [1,1,1,1], [1,1,1,1], [1,1,1,1] ] },
+                    front: { rows: 6, cols: 6, target: [ [1,1,1,1], [1,1,1,1] ] },
+                    side: { rows: 6, cols: 6, target: [ [1,1,1], [1,1,1] ] }
+                },
+                solutionTex: '<strong>Plan View:</strong> Rectangle $4 \\text{ wide} \\times 3 \\text{ deep}$ ($12$ squares). <br><strong>Front View:</strong> Rectangle $4 \\text{ wide} \\times 2 \\text{ high}$ ($8$ squares). <br><strong>Side View:</strong> Rectangle $3 \\text{ wide} \\times 2 \\text{ high}$ ($6$ squares).'
+            },
+            {
+                id: 'q2',
+                title: 'Question 2: Stepped L-Block ($4\\text{ cm}$ total width)',
+                description: 'An L-shaped block with base width $4\\text{ cm}$ ($2\\text{ cm} + 2\\text{ cm}$), depth $3\\text{ cm}$, total max height $3\\text{ cm}$ ($1\\text{ cm}$ step + $2\\text{ cm}$ top). Draw its 3 views on the $6 \\times 6$ grid.',
+                svgWireframe: `
+                    <svg class="w-full h-full" viewBox="0 0 240 140">
+                        <polygon points="30,110 130,110 130,90 80,90 80,50 30,50" fill="rgba(99,102,241,0.2)" stroke="#6366f1" stroke-width="2"/>
+                        <polygon points="130,110 170,85 170,65 130,90" fill="rgba(6,182,212,0.2)" stroke="#06b6d4" stroke-width="2"/>
+                        <polygon points="80,90 120,65 120,25 80,50" fill="rgba(6,182,212,0.2)" stroke="#06b6d4" stroke-width="2"/>
+                        <polygon points="130,90 170,65 120,65 80,90" fill="rgba(245,158,11,0.2)" stroke="#f59e0b" stroke-width="2"/>
+                        <polygon points="30,50 80,50 120,25 70,25" fill="rgba(245,158,11,0.2)" stroke="#f59e0b" stroke-width="2"/>
+                        
+                        <text x="50" y="123" fill="#cbd5e1" font-size="9" font-weight="bold">2 cm</text>
+                        <text x="100" y="123" fill="#cbd5e1" font-size="9" font-weight="bold">2 cm</text>
+                        <text x="145" y="80" fill="#06b6d4" font-size="9" font-weight="bold">Depth = 3 cm</text>
+                        <text x="12" y="80" fill="#6366f1" font-size="9" font-weight="bold">H = 3 cm</text>
+                    </svg>
+                `,
+                grids: {
+                    plan: { rows: 6, cols: 6, target: [ [1,1,1,1], [1,1,1,1], [1,1,1,1] ] },
+                    front: { rows: 6, cols: 6, target: [ [1,1,0,0], [1,1,0,0], [1,1,1,1] ] },
+                    side: { rows: 6, cols: 6, target: [ [1,1,1], [1,1,1], [1,1,1] ] }
+                },
+                solutionTex: '<strong>Plan View:</strong> Top-down rectangle $4 \\times 3$ ($12$ squares). <br><strong>Front View:</strong> L-shape profile (2 columns of height 3, 2 columns of height 1). <br><strong>Side View:</strong> Solid rectangle $3 \\times 3$ ($9$ squares).'
+            },
+            {
+                id: 'q3',
+                title: 'Question 3: Storage Shed with Sloped Lid ($5\\text{ m} \\times 4\\text{ m}$ Base)',
+                description: 'A shed with front width $5\\text{ m}$, depth $4\\text{ m}$, front height $2\\text{ m}$, back height $4\\text{ m}$. Scale: $1 \\text{ square} = 1 \\text{ m}$. Draw on $6 \\times 6$ grid.',
+                svgWireframe: `
+                    <svg class="w-full h-full" viewBox="0 0 240 140">
+                        <polygon points="30,110 130,110 130,75 30,75" fill="rgba(99,102,241,0.15)" stroke="#6366f1" stroke-width="2"/>
+                        <polygon points="130,110 190,80 190,30 130,75" fill="rgba(6,182,212,0.15)" stroke="#06b6d4" stroke-width="2"/>
+                        <polygon points="30,75 130,75 190,30 90,30" fill="rgba(245,158,11,0.15)" stroke="#f59e0b" stroke-width="2"/>
+                        
+                        <text x="80" y="123" fill="#cbd5e1" font-size="9" font-weight="bold">Width = 5 m</text>
+                        <text x="160" y="100" fill="#06b6d4" font-size="9" font-weight="bold">Depth = 4 m</text>
+                        <text x="135" y="93" fill="#6366f1" font-size="9" font-weight="bold">2 m</text>
+                        <text x="193" y="55" fill="#6366f1" font-size="9" font-weight="bold">4 m</text>
+                    </svg>
+                `,
+                grids: {
+                    plan: { rows: 6, cols: 6, target: [ [1,1,1,1,1], [1,1,1,1,1], [1,1,1,1,1], [1,1,1,1,1] ] },
+                    front: { rows: 6, cols: 6, target: [ [1,1,1,1,1], [1,1,1,1,1] ] },
+                    side: { rows: 6, cols: 6, target: [ [0,0,0,1], [0,0,1,1], [1,1,1,1], [1,1,1,1] ] }
+                },
+                solutionTex: '<strong>Plan View:</strong> Top rectangle $5 \\times 4$ ($20$ squares). <br><strong>Front View:</strong> Rectangle $5 \\times 2$ ($10$ squares). <br><strong>Side View:</strong> Right trapezium with base 4, front height 2, back height 4.'
+            },
+            {
+                id: 'q4',
+                title: 'Question 4: U-Shaped Block ($3 \\times 3$ Base Grid)',
+                description: 'A U-shaped channel prism with front width $3\\text{ units}$, depth $3\\text{ units}$, and height $2\\text{ units}$ (left and right walls height $2$, center floor step height $1$). Draw its 3 views on $6 \\times 6$ grids.',
+                svgWireframe: `
+                    <svg class="w-full h-full" viewBox="0 0 240 140">
+                        <polygon points="40,110 80,110 80,70 120,70 120,110 160,110 160,50 40,50" fill="rgba(99,102,241,0.2)" stroke="#6366f1" stroke-width="2"/>
+                        <polygon points="160,110 190,90 190,30 160,50" fill="rgba(6,182,212,0.2)" stroke="#06b6d4" stroke-width="2"/>
+                        <polygon points="40,50 160,50 190,30 70,30" fill="rgba(245,158,11,0.2)" stroke="#f59e0b" stroke-width="2"/>
+                        <text x="100" y="123" fill="#cbd5e1" font-size="9" font-weight="bold">Width = 3 units</text>
+                        <text x="15" y="80" fill="#6366f1" font-size="9" font-weight="bold">Max H = 2</text>
+                    </svg>
+                `,
+                grids: {
+                    plan: { rows: 6, cols: 6, target: [ [1,1,1], [1,1,1], [1,1,1] ] },
+                    front: { rows: 6, cols: 6, target: [ [1,1,1], [1,0,1] ] },
+                    side: { rows: 6, cols: 6, target: [ [1,1,1], [1,1,1] ] }
+                },
+                solutionTex: '<strong>Plan View:</strong> Top-down view covering full $3 \\times 3$ base area ($9$ squares). <br><strong>Front View:</strong> Vertically inverted U-shaped elevation ($3$ top squares across full width, $2$ side support base squares, total $5$ squares). <br><strong>Side View:</strong> Solid $3 \\times 2$ side wall rectangle ($6$ squares).'
+            },
+            {
+                id: 'q5',
+                title: 'Question 5: Stepped Podium ($4\\text{ cm} \\times 3\\text{ cm}$ Base)',
+                description: 'A two-tiered podium solid: back tier height 2 cm, front step height 1 cm across a $4 \\times 3$ base grid. Draw views on $6 \\times 6$ grids.',
+                svgWireframe: `
+                    <svg class="w-full h-full" viewBox="0 0 240 140">
+                        <polygon points="30,110 130,110 130,85 30,85" fill="rgba(99,102,241,0.15)" stroke="#6366f1" stroke-width="2"/>
+                        <polygon points="30,85 130,85 130,60 30,60" fill="rgba(99,102,241,0.25)" stroke="#6366f1" stroke-width="2"/>
+                        <polygon points="130,110 180,85 180,35 130,60" fill="rgba(6,182,212,0.2)" stroke="#06b6d4" stroke-width="2"/>
+                        <polygon points="30,60 130,60 180,35 80,35" fill="rgba(245,158,11,0.2)" stroke="#f59e0b" stroke-width="2"/>
+                        <text x="80" y="123" fill="#cbd5e1" font-size="9" font-weight="bold">Width = 4 cm</text>
+                        <text x="155" y="95" fill="#06b6d4" font-size="9" font-weight="bold">Depth = 3 cm</text>
+                    </svg>
+                `,
+                grids: {
+                    plan: { rows: 6, cols: 6, target: [ [1,1,1,1], [1,1,1,1], [1,1,1,1] ] },
+                    front: { rows: 6, cols: 6, target: [ [1,1,1,1], [1,1,1,1] ] },
+                    side: { rows: 6, cols: 6, target: [ [1,1,1], [1,1,1] ] }
+                },
+                solutionTex: '<strong>Plan View:</strong> Rectangle $4 \\times 3$ ($12$ squares). <br><strong>Front View:</strong> Rectangle $4 \\times 2$ ($8$ squares). <br><strong>Side View:</strong> Rectangle $3 \\times 2$ ($6$ squares).'
+            },
+            {
+                id: 'q6',
+                title: 'Question 6: Square Pyramid Base ($4\\text{ cm} \\times 4\\text{ cm}$, Height $3\\text{ cm}$)',
+                description: 'A square-based pyramid with base side $4\\text{ cm}$ and height $3\\text{ cm}$. Draw the Plan View base and Front/Side triangular elevations on $6 \\times 6$ grids.',
+                svgWireframe: `
+                    <svg class="w-full h-full" viewBox="0 0 240 140">
+                        <polygon points="30,110 130,110 180,70 80,70" fill="rgba(148,163,184,0.1)" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
+                        <polygon points="30,110 130,110 105,25" fill="rgba(99,102,241,0.2)" stroke="#6366f1" stroke-width="2"/>
+                        <polygon points="130,110 180,70 105,25" fill="rgba(6,182,212,0.2)" stroke="#06b6d4" stroke-width="2"/>
+                        <line x1="105" y1="25" x2="105" y2="90" stroke="#f43f5e" stroke-width="1.8" stroke-dasharray="3,3"/>
+                        <text x="80" y="123" fill="#cbd5e1" font-size="9" font-weight="bold">Base = 4 cm</text>
+                        <text x="112" y="60" fill="#f43f5e" font-size="9" font-weight="bold">H = 3 cm</text>
+                    </svg>
+                `,
+                grids: {
+                    plan: { rows: 6, cols: 6, target: [ [1,1,1,1], [1,1,1,1], [1,1,1,1], [1,1,1,1] ] },
+                    front: { rows: 6, cols: 6, target: [ [0,1,1,0], [1,1,1,1], [1,1,1,1] ] },
+                    side: { rows: 6, cols: 6, target: [ [0,1,1,0], [1,1,1,1], [1,1,1,1] ] }
+                },
+                solutionTex: '<strong>Plan View:</strong> Square base $4 \\times 4$ ($16$ squares). <br><strong>Front View:</strong> Isosceles triangle elevation with base $4$ and height $3$ ($10$ squares). <br><strong>Side View:</strong> Identical isosceles triangle with base $4$ and height $3$ ($10$ squares).'
+            }
+        ];
+
+        // Store student state masks for each question grid
+        const userState = {};
+
+        function initUserStates() {
+            questionsData.forEach(q => {
+                userState[q.id] = {};
+                ['plan', 'front', 'side'].forEach(view => {
+                    const cfg = q.grids[view];
+                    const mask = [];
+                    for (let r = 0; r < cfg.rows; r++) {
+                        mask.push(new Array(cfg.cols).fill(0));
+                    }
+                    userState[q.id][view] = mask;
+                });
+            });
+        }
+
+        function renderInteractiveGridHTML(qId, view) {
+            const q = questionsData.find(item => item.id === qId);
+            if (!q) return '';
+            const cfg = q.grids[view];
+            const mask = userState[qId] && userState[qId][view] ? userState[qId][view] : null;
+
+            let gridHtml = `<div class="grid grid-cols-6 gap-1 w-36 h-36 p-1.5 bg-slate-950 border border-slate-800 rounded-lg shadow-inner">`;
+            for (let r = 0; r < cfg.rows; r++) {
+                for (let c = 0; c < cfg.cols; c++) {
+                    const isFilled = mask && mask[r][c] === 1;
+                    let activeClass = '';
+                    if (isFilled) {
+                        activeClass = view === 'plan' ? 'plan-active' : (view === 'front' ? 'front-active' : 'side-active');
+                    } else {
+                        activeClass = 'bg-slate-800/90 border-slate-700/60 hover:bg-slate-700/80';
+                    }
+                    gridHtml += `
+                        <button id="cell-${qId}-${view}-${r}-${c}" 
+                                type="button"
+                                onclick="toggleGridCell('${qId}', '${view}', ${r}, ${c})" 
+                                class="grid-cell w-full h-full rounded border ${activeClass} focus:outline-none focus:ring-1 focus:ring-indigo-400">
+                        </button>
+                    `;
+                }
+            }
+            gridHtml += `</div>`;
+            return gridHtml;
+        }
+
+        function toggleGridCell(qId, view, r, c) {
+            if (!userState[qId] || !userState[qId][view]) return;
+            const currentVal = userState[qId][view][r][c];
+            const newVal = currentVal === 1 ? 0 : 1;
+            userState[qId][view][r][c] = newVal;
+
+            const cellBtn = document.getElementById(`cell-${qId}-${view}-${r}-${c}`);
+            if (cellBtn) {
+                cellBtn.classList.remove('plan-active', 'front-active', 'side-active', 'bg-slate-800/90', 'border-slate-700/60', 'hover:bg-slate-700/80', 'cell-error');
+                if (newVal === 1) {
+                    const activeClass = view === 'plan' ? 'plan-active' : (view === 'front' ? 'front-active' : 'side-active');
+                    cellBtn.classList.add(activeClass);
+                } else {
+                    cellBtn.classList.add('bg-slate-800/90', 'border-slate-700/60', 'hover:bg-slate-700/80');
+                }
+            }
+        }
+
+        function renderTargetGridPreviewSVG(qId, view) {
+            const q = questionsData.find(item => item.id === qId);
+            if (!q) return '';
+            const cfg = q.grids[view];
+            const targetPattern = cfg.target;
+            const targetH = targetPattern.length;
+            const targetW = targetPattern[0].length;
+            const fillColor = view === 'plan' ? '#f59e0b' : (view === 'front' ? '#10b981' : '#06b6d4');
+            const startR = (view === 'plan') ? 0 : (6 - targetH);
+
+            let svg = `<svg class="w-24 h-24 mx-auto shadow-inner bg-slate-950 p-1 rounded-lg border border-slate-800" viewBox="0 0 120 120">`;
+            for (let r = 0; r < 6; r++) {
+                for (let c = 0; c < 6; c++) {
+                    const patternR = r - startR;
+                    const isFilled = (patternR >= 0 && patternR < targetH && c < targetW && targetPattern[patternR][c] === 1);
+                    svg += `<rect x="${c * 19 + 3}" y="${r * 19 + 3}" width="17" height="17" fill="${isFilled ? fillColor : '#1e293b'}" stroke="#334155" stroke-width="1" rx="2"/>`;
+                }
+            }
+            svg += `</svg>`;
+            return svg;
+        }
+
+        function renderQuestions() {
+            const container = document.getElementById('drawing-questions-container');
+            if (!container) return;
+
+            let html = '';
+            questionsData.forEach((q, idx) => {
+                html += `
+                    <div class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-5 shadow-sm space-y-5" id="card-${q.id}">
+                        <!-- Question Header -->
+                        <div class="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white font-black flex items-center justify-center text-xs shadow">${idx + 1}</span>
+                                <h3 class="text-base font-bold text-slate-900">${q.title}</h3>
+                            </div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <button onclick="resetQuestionGrid('${q.id}')" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1">
+                                    <i class="fa-solid fa-rotate-left"></i> Clear Grids
+                                </button>
+                                <button id="btn-show-target-${q.id}" onclick="showTargetAnswerOnGrid('${q.id}')" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-xs transition-colors hidden flex items-center gap-1 shadow">
+                                    <i class="fa-solid fa-eye"></i> Show Answer on Grid
+                                </button>
+                                <button onclick="checkQuestionDrawing('${q.id}')" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs shadow transition-colors flex items-center gap-1">
+                                    <i class="fa-solid fa-check"></i> Mark Views
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 3D Wireframe Illustration + Description -->
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                            <div class="md:col-span-4 bg-slate-950 p-3 rounded-xl border border-slate-800 h-44 flex items-center justify-center relative shadow-inner">
+                                ${q.svgWireframe}
+                            </div>
+                            <div class="md:col-span-8 space-y-2">
+                                <p class="text-xs text-slate-700 font-medium leading-relaxed">${q.description}</p>
+                                <div class="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-[11px] text-indigo-900 font-semibold flex items-center gap-2">
+                                    <i class="fa-solid fa-hand-pointer text-indigo-600"></i>
+                                    <span><strong>Interactive Instruction:</strong> Click or tap grid cells to toggle filled boxes (colored) vs empty boxes.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3 Interactive Grid Drawers (Plan, Front, Side) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <!-- Plan View Drawer -->
+                            <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2 text-center">
+                                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                                    <span class="text-xs font-extrabold text-amber-600 uppercase tracking-wider flex items-center gap-1">
+                                        <i class="fa-solid fa-eye text-amber-500"></i> Plan (Top)
+                                    </span>
+                                    <span class="text-[10px] text-slate-400 font-mono">${q.grids.plan.cols}W × ${q.grids.plan.rows}D</span>
+                                </div>
+                                <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-center min-h-[140px]" id="container-${q.id}-plan">
+                                    ${renderInteractiveGridHTML(q.id, 'plan')}
+                                </div>
+                            </div>
+
+                            <!-- Front Elevation Drawer -->
+                            <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2 text-center">
+                                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                                    <span class="text-xs font-extrabold text-emerald-600 uppercase tracking-wider flex items-center gap-1">
+                                        <i class="fa-solid fa-arrow-up text-emerald-500"></i> Front Elevation
+                                    </span>
+                                    <span class="text-[10px] text-slate-400 font-mono">${q.grids.front.cols}W × ${q.grids.front.rows}H</span>
+                                </div>
+                                <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-center min-h-[140px]" id="container-${q.id}-front">
+                                    ${renderInteractiveGridHTML(q.id, 'front')}
+                                </div>
+                            </div>
+
+                            <!-- Side Elevation Drawer -->
+                            <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2 text-center">
+                                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                                    <span class="text-xs font-extrabold text-cyan-600 uppercase tracking-wider flex items-center gap-1">
+                                        <i class="fa-solid fa-arrow-right text-cyan-500"></i> Side Elevation
+                                    </span>
+                                    <span class="text-[10px] text-slate-400 font-mono">${q.grids.side.cols}D × ${q.grids.side.rows}H</span>
+                                </div>
+                                <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-center min-h-[140px]" id="container-${q.id}-side">
+                                    ${renderInteractiveGridHTML(q.id, 'side')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step-by-step Solution Drawer with Target Grid Previews -->
+                        <div id="sol-${q.id}" class="hidden p-4 bg-amber-50 border-2 border-amber-300 rounded-xl text-xs text-amber-950 font-mono space-y-3">
+                            <p class="font-bold text-amber-900 flex items-center gap-1.5 text-sm">
+                                <i class="fa-solid fa-lightbulb text-amber-600"></i> Step-by-Step Orthographic Solution &amp; Target Grids:
+                            </p>
+                            <div class="text-[11.5px] leading-relaxed text-slate-800">${q.solutionTex}</div>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-amber-200/80 text-center font-sans">
+                                <div class="bg-white/80 p-2.5 rounded-lg border border-amber-200">
+                                    <span class="text-[11px] font-bold text-amber-700 uppercase block mb-1.5">Target Plan View</span>
+                                    ${renderTargetGridPreviewSVG(q.id, 'plan')}
+                                </div>
+                                <div class="bg-white/80 p-2.5 rounded-lg border border-amber-200">
+                                    <span class="text-[11px] font-bold text-emerald-700 uppercase block mb-1.5">Target Front Elevation</span>
+                                    ${renderTargetGridPreviewSVG(q.id, 'front')}
+                                </div>
+                                <div class="bg-white/80 p-2.5 rounded-lg border border-amber-200">
+                                    <span class="text-[11px] font-bold text-cyan-700 uppercase block mb-1.5">Target Side Elevation</span>
+                                    ${renderTargetGridPreviewSVG(q.id, 'side')}
+                                </div>
+                            </div>
+
+                            <div class="pt-2 flex justify-end">
+                                <button onclick="showTargetAnswerOnGrid('${q.id}')" class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-sans font-bold rounded-lg text-xs shadow transition-colors flex items-center gap-1.5">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Load Target Answer onto Drawing Grids
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function fillTargetAnswer(qId) {
+            const q = questionsData.find(item => item.id === qId);
+            if (!q) return;
+
+            ['plan', 'front', 'side'].forEach(view => {
+                const cfg = q.grids[view];
+                const targetPattern = cfg.target;
+                const targetH = targetPattern.length;
+                const targetW = targetPattern[0].length;
+
+                // Clear user grid
+                for (let r = 0; r < cfg.rows; r++) {
+                    for (let c = 0; c < cfg.cols; c++) {
+                        userState[qId][view][r][c] = 0;
+                    }
+                }
+
+                // Place target pattern grounded at bottom for front/side elevations, top for plan
+                const startR = (view === 'plan') ? 0 : (cfg.rows - targetH);
+                for (let r = 0; r < targetH; r++) {
+                    for (let c = 0; c < targetW; c++) {
+                        userState[qId][view][startR + r][c] = targetPattern[r][c];
+                    }
+                }
+
+                const container = document.getElementById(`container-${qId}-${view}`);
+                if (container) container.innerHTML = renderInteractiveGridHTML(qId, view);
+            });
+        }
+
+        function showTargetAnswerOnGrid(qId) {
+            fillTargetAnswer(qId);
+
+            const card = document.getElementById(`card-${qId}`);
+            if (card) card.className = "bg-amber-50/80 border-2 border-amber-500 rounded-2xl p-5 shadow-sm space-y-5";
+
+            const sol = document.getElementById(`sol-${qId}`);
+            if (sol) {
+                sol.classList.remove('hidden');
+                if (window.MathJax && window.MathJax.typesetPromise) MathJax.typesetPromise([sol]);
+            }
+
+            showToast("Target Answer Loaded!", "The correct orthographic projections have been filled onto the grids.", "info");
+        }
+
+        function resetQuestionGrid(qId) {
+            const q = questionsData.find(item => item.id === qId);
+            if (!q) return;
+
+            ['plan', 'front', 'side'].forEach(view => {
+                const cfg = q.grids[view];
+                for (let r = 0; r < cfg.rows; r++) {
+                    for (let c = 0; c < cfg.cols; c++) {
+                        userState[qId][view][r][c] = 0;
+                    }
+                }
+                const container = document.getElementById(`container-${qId}-${view}`);
+                if (container) container.innerHTML = renderInteractiveGridHTML(qId, view);
+            });
+
+            const sol = document.getElementById(`sol-${qId}`);
+            if (sol) sol.classList.add('hidden');
+
+            const btnShowTarget = document.getElementById(`btn-show-target-${qId}`);
+            if (btnShowTarget) btnShowTarget.classList.add('hidden');
+
+            const card = document.getElementById(`card-${qId}`);
+            if (card) card.className = "bg-slate-50 border-2 border-slate-200 rounded-2xl p-5 shadow-sm space-y-5";
+        }
+
+        function checkQuestionDrawing(qId) {
+            const q = questionsData.find(item => item.id === qId);
+            if (!q) return;
+
+            let isAllCorrect = true;
+
+            ['plan', 'front', 'side'].forEach(view => {
+                const cfg = q.grids[view];
+                const targetPattern = cfg.target; // 2D array of target shape
+                const targetH = targetPattern.length;
+                const targetW = targetPattern[0].length;
+                const user = userState[qId][view];
+
+                // Find bounding box of user's filled cells
+                let minR = cfg.rows, maxR = -1, minC = cfg.cols, maxC = -1;
+                let filledCount = 0;
+                for (let r = 0; r < cfg.rows; r++) {
+                    for (let c = 0; c < cfg.cols; c++) {
+                        if (user[r][c] === 1) {
+                            filledCount++;
+                            if (r < minR) minR = r;
+                            if (r > maxR) maxR = r;
+                            if (c < minC) minC = c;
+                            if (c > maxC) maxC = c;
+                        }
+                    }
+                }
+
+                // Count target filled cells
+                let targetCount = 0;
+                for (let r = 0; r < targetH; r++) {
+                    for (let c = 0; c < targetW; c++) {
+                        if (targetPattern[r][c] === 1) targetCount++;
+                    }
+                }
+
+                let viewCorrect = true;
+
+                if (filledCount === 0 || filledCount !== targetCount) {
+                    viewCorrect = false;
+                } else {
+                    const userH = maxR - minR + 1;
+                    const userW = maxC - minC + 1;
+
+                    if (userH !== targetH || userW !== targetW) {
+                        viewCorrect = false;
+                    } else {
+                        // Check relative shape match inside bounding box
+                        for (let r = 0; r < targetH; r++) {
+                            for (let c = 0; c < targetW; c++) {
+                                const userVal = user[minR + r][minC + c];
+                                if (userVal !== targetPattern[r][c]) {
+                                    viewCorrect = false;
+                                    break;
+                                }
+                            }
+                            if (!viewCorrect) break;
+                        }
+                    }
+                }
+
+                // Apply error highlighting
+                for (let r = 0; r < cfg.rows; r++) {
+                    for (let c = 0; c < cfg.cols; c++) {
+                        const cellBtn = document.getElementById(`cell-${qId}-${view}-${r}-${c}`);
+                        if (cellBtn) cellBtn.classList.remove('cell-error');
+                        if (!viewCorrect && user[r][c] === 1 && cellBtn) {
+                            cellBtn.classList.add('cell-error');
+                        }
+                    }
+                }
+
+                if (!viewCorrect) isAllCorrect = false;
+            });
+
+            const card = document.getElementById(`card-${qId}`);
+            const sol = document.getElementById(`sol-${qId}`);
+            const btnShowTarget = document.getElementById(`btn-show-target-${qId}`);
+
+            if (isAllCorrect) {
+                if (card) card.className = "bg-emerald-50/60 border-2 border-emerald-500 rounded-2xl p-5 shadow-sm space-y-5";
+                incrementScore(qId);
+                showToast("Correct Drawings!", "All 3 orthographic views drawn with accurate dimensions.", "success");
+            } else {
+                if (card) card.className = "bg-rose-50/60 border-2 border-rose-500 rounded-2xl p-5 shadow-sm space-y-5";
+                if (btnShowTarget) btnShowTarget.classList.remove('hidden');
+
+                // Automatically populate target answer directly onto grids upon wrong attempt
+                fillTargetAnswer(qId);
+
+                showToast("Incorrect - Answer Loaded", "The correct target views have been filled onto the grids above for review.", "error");
+            }
+
+            if (sol) {
+                sol.classList.remove('hidden');
+                if (window.MathJax && window.MathJax.typesetPromise) MathJax.typesetPromise([sol]);
+            }
+        }
+
+        function reset3DGrid() {
+            voxelMatrix = [
+                [0, 0, 0],
+                [0, 0, 0],
+                [0, 0, 0]
+            ];
+            render3DStructure();
+        }
+
+        function loadPresetShape(type) {
+            if (type === 'l-shape') {
+                voxelMatrix = [
+                    [2, 0, 0],
+                    [2, 0, 0],
+                    [2, 2, 2]
+                ];
+            } else if (type === 'u-shape') {
+                voxelMatrix = [
+                    [2, 0, 2],
+                    [2, 0, 2],
+                    [1, 1, 1]
+                ];
+            } else if (type === 'step-shape') {
+                voxelMatrix = [
+                    [3, 2, 1],
+                    [3, 2, 1],
+                    [3, 2, 1]
+                ];
+            }
+            render3DStructure();
+        }
+
+        function toggleVoxelHeight(r, c) {
+            voxelMatrix[r][c] = (voxelMatrix[r][c] + 1) % 4;
+            render3DStructure();
+        }
+
+        function render3DStructure() {
+            const svg3D = document.getElementById('iso-builder-svg');
+            const svgPlan = document.getElementById('plan-projection-svg');
+            const svgFront = document.getElementById('front-projection-svg');
+            const svgSide = document.getElementById('side-projection-svg');
+            const matrixControls = document.getElementById('grid-controls-matrix');
+
+            if (!svg3D || !svgPlan || !svgFront || !svgSide || !matrixControls) return;
+
+            // Render Control Matrix Buttons
+            let matrixHtml = '';
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    const h = voxelMatrix[r][c];
+                    matrixHtml += `
+                        <button onclick="toggleVoxelHeight(${r}, ${c})" class="p-2 rounded-lg border transition-all ${h > 0 ? 'bg-indigo-600 border-indigo-400 text-white shadow' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}">
+                            (${r+1},${c+1}) = ${h}
+                        </button>
+                    `;
+                }
+            }
+            matrixControls.innerHTML = matrixHtml;
+
+            // Render 3D Isometric View
+            let isoSvgHtml = `
+                <!-- Base Grid Surface -->
+                <polygon points="180,180 260,140 180,100 100,140" fill="rgba(30,41,59,0.8)" stroke="#475569" stroke-width="1.5"/>
+            `;
+
+            const originX = 180;
+            const originY = 140;
+            const isoW = 28;
+            const isoH = 16;
+            const cubeH = 22;
+
+            // Render Cubes in Back-to-Front Depth Order
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    const height = voxelMatrix[r][c];
+                    for (let h = 0; h < height; h++) {
+                        const cx = originX + (c - r) * isoW;
+                        const cy = originY + (c + r) * isoH - h * cubeH;
+
+                        isoSvgHtml += `
+                            <g class="transition-all duration-300">
+                                <!-- Left Face -->
+                                <polygon points="${cx},${cy} ${cx - isoW},${cy - isoH} ${cx - isoW},${cy - isoH - cubeH} ${cx},${cy - cubeH}" fill="#4338ca" stroke="#312e81" stroke-width="1"/>
+                                <!-- Right Face -->
+                                <polygon points="${cx},${cy} ${cx + isoW},${cy - isoH} ${cx + isoW},${cy - isoH - cubeH} ${cx},${cy - cubeH}" fill="#6366f1" stroke="#312e81" stroke-width="1"/>
+                                <!-- Top Face -->
+                                <polygon points="${cx},${cy - cubeH} ${cx - isoW},${cy - isoH - cubeH} ${cx},${cy - 2 * isoH - cubeH} ${cx + isoW},${cy - isoH - cubeH}" fill="#818cf8" stroke="#312e81" stroke-width="1"/>
+                            </g>
+                        `;
+                    }
+                }
+            }
+            svg3D.innerHTML = isoSvgHtml;
+
+            // Render Plan Projection (Top-down view)
+            let planHtml = '';
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    const h = voxelMatrix[r][c];
+                    const x = c * 35 + 8;
+                    const y = r * 35 + 8;
+                    planHtml += `<rect x="${x}" y="${y}" width="32" height="32" fill="${h > 0 ? '#f59e0b' : '#1e293b'}" stroke="#334155" stroke-width="2" rx="4"/>`;
+                    if (h > 0) {
+                        planHtml += `<text x="${x + 16}" y="${y + 20}" fill="#0f172a" font-size="12" font-weight="bold" text-anchor="middle">${h}</text>`;
+                    }
+                }
+            }
+            svgPlan.innerHTML = planHtml;
+
+            // Render Front Elevation Projection
+            let frontHtml = '';
+            for (let c = 0; c < 3; c++) {
+                let maxH = 0;
+                for (let r = 0; r < 3; r++) {
+                    if (voxelMatrix[r][c] > maxH) maxH = voxelMatrix[r][c];
+                }
+                const x = c * 35 + 8;
+                for (let level = 0; level < 3; level++) {
+                    const y = (2 - level) * 35 + 8;
+                    const isFilled = level < maxH;
+                    frontHtml += `<rect x="${x}" y="${y}" width="32" height="32" fill="${isFilled ? '#10b981' : '#1e293b'}" stroke="#334155" stroke-width="2" rx="4"/>`;
+                }
+            }
+            svgFront.innerHTML = frontHtml;
+
+            // Render Side Elevation Projection
+            let sideHtml = '';
+            for (let r = 0; r < 3; r++) {
+                let maxH = 0;
+                for (let c = 0; c < 3; c++) {
+                    if (voxelMatrix[r][c] > maxH) maxH = voxelMatrix[r][c];
+                }
+                const x = (2 - r) * 35 + 8;
+                for (let level = 0; level < 3; level++) {
+                    const y = (2 - level) * 35 + 8;
+                    const isFilled = level < maxH;
+                    sideHtml += `<rect x="${x}" y="${y}" width="32" height="32" fill="${isFilled ? '#06b6d4' : '#1e293b'}" stroke="#334155" stroke-width="2" rx="4"/>`;
+                }
+            }
+            svgSide.innerHTML = sideHtml;
+        }
+
+        let isDrawing = false;
+        let activeTool = 'pen';
+        let activeColor = '#10b981';
+        let activeGrid = 'square';
+        let startX = 0, startY = 0;
+        let canvas, ctx, canvasContainer;
+        let savedImageData = null;
+
+        function initWhiteboard() {
+            canvas = document.getElementById('whiteboard-canvas');
+            canvasContainer = document.getElementById('canvas-container');
+            if (!canvas || !canvasContainer) return;
+            ctx = canvas.getContext('2d');
+
+            resizeWhiteboardCanvas();
+            window.addEventListener('resize', resizeWhiteboardCanvas);
+
+            // Mouse Events
+            canvas.addEventListener('mousedown', startDraw);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', endDraw);
+            canvas.addEventListener('mouseleave', endDraw);
+
+            // Touch Events
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY });
+                canvas.dispatchEvent(mouseEvent);
+            }, { passive: false });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY });
+                canvas.dispatchEvent(mouseEvent);
+            }, { passive: false });
+
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                const mouseEvent = new MouseEvent('mouseup', {});
+                canvas.dispatchEvent(mouseEvent);
+            }, { passive: false });
+        }
+
+        function resizeWhiteboardCanvas() {
+            if (!canvas || !canvasContainer) return;
+            let tempImg = null;
+            if (canvas.width > 0 && canvas.height > 0) {
+                try { tempImg = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch(err){}
+            }
+            
+            canvas.width = canvasContainer.clientWidth;
+            canvas.height = canvasContainer.clientHeight;
+
+            if (tempImg) {
+                ctx.putImageData(tempImg, 0, 0);
+            }
+        }
+
+        function setCanvasTool(tool) {
+            activeTool = tool;
+            ['pen', 'line', 'rect', 'eraser'].forEach(t => {
+                const btn = document.getElementById(`btn-tool-${t}`);
+                if (btn) {
+                    btn.className = t === tool 
+                        ? "px-3 py-1.5 bg-emerald-600 text-white font-bold rounded-lg text-xs shadow flex items-center gap-1 transition-all"
+                        : "px-3 py-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold rounded-lg text-xs flex items-center gap-1 transition-all";
+                }
+            });
+        }
+
+        function setCanvasColor(color) {
+            activeColor = color;
+            if (activeTool === 'eraser') setCanvasTool('pen');
+        }
+
+        function setCanvasGrid(gridType) {
+            activeGrid = gridType;
+            if (!canvasContainer) return;
+
+            const title = document.getElementById('canvas-mode-title');
+            const sqBtn = document.getElementById('btn-grid-square');
+            const isoBtn = document.getElementById('btn-grid-iso');
+
+            if (gridType === 'square') {
+                canvasContainer.className = "w-full h-80 bg-slate-900 rounded-xl border border-slate-800 relative overflow-hidden grid-bg";
+                if (title) title.innerHTML = '<i class="fa-solid fa-border-all mr-1"></i> Square Grid Whiteboard';
+                if (sqBtn) sqBtn.className = "px-2.5 py-1.5 bg-emerald-600 text-white font-bold rounded-lg text-xs flex items-center gap-1";
+                if (isoBtn) isoBtn.className = "px-2.5 py-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold rounded-lg text-xs flex items-center gap-1";
+            } else {
+                canvasContainer.className = "w-full h-80 bg-slate-900 rounded-xl border border-slate-800 relative overflow-hidden iso-grid-bg";
+                if (title) title.innerHTML = '<i class="fa-solid fa-cubes mr-1"></i> Isometric Dot Grid Whiteboard';
+                if (sqBtn) sqBtn.className = "px-2.5 py-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold rounded-lg text-xs flex items-center gap-1";
+                if (isoBtn) isoBtn.className = "px-2.5 py-1.5 bg-emerald-600 text-white font-bold rounded-lg text-xs flex items-center gap-1";
+            }
+        }
+
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            let x = e.clientX - rect.left;
+            let y = e.clientY - rect.top;
+
+            const snapToggle = document.getElementById('snap-grid-toggle');
+            if (snapToggle && snapToggle.checked) {
+                const gridSize = 20;
+                x = Math.round(x / gridSize) * gridSize;
+                y = Math.round(y / gridSize) * gridSize;
+            }
+
+            return { x, y };
+        }
+
+        function startDraw(e) {
+            isDrawing = true;
+            const pos = getCanvasCoords(e);
+            startX = pos.x;
+            startY = pos.y;
+
+            try {
+                savedImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            } catch(err) {
+                savedImageData = null;
+            }
+
+            if (activeTool === 'pen' || activeTool === 'eraser') {
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+            }
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const pos = getCanvasCoords(e);
+            const currX = pos.x;
+            const currY = pos.y;
+
+            if (activeTool === 'pen') {
+                ctx.strokeStyle = activeColor;
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.lineTo(currX, currY);
+                ctx.stroke();
+            } else if (activeTool === 'eraser') {
+                ctx.clearRect(currX - 12, currY - 12, 24, 24);
+            } else if (activeTool === 'line' || activeTool === 'rect') {
+                if (savedImageData) {
+                    ctx.putImageData(savedImageData, 0, 0);
+                }
+                ctx.strokeStyle = activeColor;
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                if (activeTool === 'line') {
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(currX, currY);
+                    ctx.stroke();
+                } else if (activeTool === 'rect') {
+                    ctx.beginPath();
+                    ctx.strokeRect(startX, startY, currX - startX, currY - startY);
+                }
+            }
+        }
+
+        function endDraw() {
+            if (!isDrawing) return;
+            isDrawing = false;
+            savedImageData = null;
+        }
+
+        function clearCanvas() {
+            if (ctx && canvas) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        function incrementScore(key) {
+            const scoreEl = document.getElementById('progress-score');
+            const barFill = document.getElementById('progress-bar-fill');
+            const starsEl = document.getElementById('stars-count');
+
+            if (!completedTasks.has(key)) {
+                completedTasks.add(key);
+                scoreCount++;
+                if (scoreEl) scoreEl.innerText = `${scoreCount} / ${totalScore} Completed`;
+                if (barFill) barFill.style.width = `${(scoreCount / totalScore) * 100}%`;
+                if (starsEl) starsEl.innerText = scoreCount * 5;
+            }
+        }
+
+        function showToast(title, message, type = 'info') {
+            const toast = document.getElementById('notification-toast');
+            const toastTitle = document.getElementById('toast-title');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+
+            if (!toast) return;
+
+            toastTitle.innerText = title;
+            toastMsg.innerText = message;
+
+            if (type === 'success') {
+                toastIcon.className = "p-1 rounded-full bg-emerald-600";
+                toastIcon.innerHTML = '<i class="fa-solid fa-check"></i>';
+            } else if (type === 'error') {
+                toastIcon.className = "p-1 rounded-full bg-rose-600";
+                toastIcon.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            } else {
+                toastIcon.className = "p-1 rounded-full bg-indigo-600";
+                toastIcon.innerHTML = '<i class="fa-solid fa-info"></i>';
+            }
+
+            toast.classList.remove('translate-x-full', 'opacity-0');
+            toast.classList.add('translate-x-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-x-0', 'opacity-100');
+                toast.classList.add('translate-x-full', 'opacity-0');
+            }, 3000);
+        }
+
+        window.onload = function() {
+            initUserStates();
+            renderQuestions();
+            render3DStructure();
+            initWhiteboard();
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise();
+            }
+        };
+    </script>
+</body>
+</html>
